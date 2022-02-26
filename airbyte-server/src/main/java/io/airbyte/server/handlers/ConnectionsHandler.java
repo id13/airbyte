@@ -212,7 +212,7 @@ public class ConnectionsHandler {
     return updateConnection(connectionUpdate, false);
   }
 
-  public ConnectionRead updateConnection(final ConnectionUpdate connectionUpdate, boolean isAReset)
+  public ConnectionRead updateConnection(final ConnectionUpdate connectionUpdate, final boolean isAReset)
       throws ConfigNotFoundException, IOException, JsonValidationException {
     if (featureFlags.usesNewScheduler()) {
       connectionHelper.updateConnection(connectionUpdate);
@@ -240,14 +240,10 @@ public class ConnectionsHandler {
       throws JsonValidationException, IOException, ConfigNotFoundException {
     final List<ConnectionRead> connectionReads = Lists.newArrayList();
 
-    for (final StandardSync standardSync : configRepository.listStandardSyncs()) {
+    for (final StandardSync standardSync : configRepository.listWorkspaceStandardSyncs(workspaceIdRequestBody.getWorkspaceId())) {
       if (standardSync.getStatus() == StandardSync.Status.DEPRECATED && !includeDeleted) {
         continue;
       }
-      if (!isStandardSyncInWorkspace(workspaceIdRequestBody.getWorkspaceId(), standardSync)) {
-        continue;
-      }
-
       connectionReads.add(connectionHelper.buildConnectionRead(standardSync.getConnectionId()));
     }
 
