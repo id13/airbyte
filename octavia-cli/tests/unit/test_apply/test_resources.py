@@ -23,7 +23,7 @@ class TestBaseResource:
         return {"exotic_attribute": "foo"}
 
     def test_init_no_remote_resource(self, mocker, patch_base_class, mock_api_client, local_configuration):
-        mocker.patch.object(resources.BaseResource, "get_state_from_file", mocker.Mock(return_value=None))
+        mocker.patch.object(resources.BaseResource, "_get_state_from_file", mocker.Mock(return_value=None))
         mocker.patch.object(resources.BaseResource, "get_remote_resource", mocker.Mock(return_value=False))
         mocker.patch.object(resources, "compute_checksum")
         resource = resources.BaseResource(mock_api_client, "workspace_id", local_configuration, "bar.yaml")
@@ -32,14 +32,14 @@ class TestBaseResource:
         assert resource.configuration_path == "bar.yaml"
         assert resource.api_instance == resource.api.return_value
         resource.api.assert_called_with(mock_api_client)
-        assert resource.state == resource.get_state_from_file.return_value
+        assert resource.state == resource._get_state_from_file.return_value
         assert resource.remote_resource == resource.get_remote_resource.return_value
         assert resource.was_created == resource.get_remote_resource.return_value
         assert resource.local_file_changed is True
 
     def test_init_with_remote_resource_not_changed(self, mocker, patch_base_class, mock_api_client, local_configuration):
         mocker.patch.object(
-            resources.BaseResource, "get_state_from_file", mocker.Mock(return_value=mocker.Mock(configuration_checksum="my_checksum"))
+            resources.BaseResource, "_get_state_from_file", mocker.Mock(return_value=mocker.Mock(configuration_checksum="my_checksum"))
         )
         mocker.patch.object(resources.BaseResource, "get_remote_resource", mocker.Mock(return_value=True))
         mocker.patch.object(resources, "compute_checksum", mocker.Mock(return_value="my_checksum"))
@@ -49,7 +49,9 @@ class TestBaseResource:
 
     def test_init_with_remote_resource_changed(self, mocker, patch_base_class, mock_api_client, local_configuration):
         mocker.patch.object(
-            resources.BaseResource, "get_state_from_file", mocker.Mock(return_value=mocker.Mock(configuration_checksum="my_state_checksum"))
+            resources.BaseResource,
+            "_get_state_from_file",
+            mocker.Mock(return_value=mocker.Mock(configuration_checksum="my_state_checksum")),
         )
         mocker.patch.object(resources.BaseResource, "get_remote_resource", mocker.Mock(return_value=True))
         mocker.patch.object(resources, "compute_checksum", mocker.Mock(return_value="my_new_checksum"))
