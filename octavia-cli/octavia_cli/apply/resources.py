@@ -135,6 +135,9 @@ class BaseResource(abc.ABC):
             return self.local_configuration.get(name)
         raise AttributeError(f"{self.__class__.__name__}.{name} is invalid.")
 
+    def _search(self):
+        return self._search_fn(self.api_instance, self.search_payload)
+
     def _get_state_from_file(self):
         expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
         if expected_state_path.is_file():
@@ -167,9 +170,6 @@ class BaseResource(abc.ABC):
                 raise InvalidConfigurationError(e.body)
             else:
                 raise e
-
-    def _search(self):
-        return self._search_fn(self.api_instance, self.search_payload)
 
     def create(self):
         return self._create_or_update(self._create_fn, self.create_payload)
