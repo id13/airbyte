@@ -8,8 +8,8 @@ from typing import List
 import click
 from octavia_cli.check_context import REQUIRED_PROJECT_DIRECTORIES, requires_init
 
-from .airbyte_resources import BaseAirbyteResource
-from .airbyte_resources import factory as airbyte_resource_factory
+from .resources import BaseResource
+from .resources import factory as resource_factory
 
 
 @click.command(name="apply", help="Create an Airbyte resources from a YAML definition")
@@ -23,7 +23,7 @@ def apply(ctx: click.Context, configurations_files: List[click.Path], force: boo
     if not configurations_files:
         click.echo(click.style("😒 - No YAML file found to run apply.", fg="red"))
     for path in configurations_files:
-        resource = airbyte_resource_factory(ctx.obj["API_CLIENT"], ctx.obj["WORKSPACE_ID"], path)
+        resource = resource_factory(ctx.obj["API_CLIENT"], ctx.obj["WORKSPACE_ID"], path)
         apply_single_resource(resource, force)
 
 
@@ -76,14 +76,14 @@ def prompt_for_diff_validation(resource_name, diff):
     return click.confirm(click.style(f"❓ - Do you want to update {resource_name} ?", bold=True))
 
 
-def update_resource(airbyte_resource: BaseAirbyteResource, force: bool):
-    diff = airbyte_resource.get_connection_configuration_diff()
-    should_update, update_reason = should_update_resource(diff, airbyte_resource.local_file_changed, force)
+def update_resource(resource: BaseResource, force: bool):
+    diff = resource.get_connection_configuration_diff()
+    should_update, update_reason = should_update_resource(diff, resource.local_file_changed, force)
     output_messages = [update_reason]
     if not force and diff:
-        should_update = prompt_for_diff_validation(airbyte_resource.resource_name, diff)
+        should_update = prompt_for_diff_validation(resource.resource_name, diff)
     if should_update:
-        updated_resource, state = airbyte_resource.update()
+        updated_resource, state = resource.update()
         output_messages.append(
             click.style(f"🎉 - Successfully updated {updated_resource.name} on your Airbyte instance!", fg="green", bold=True)
         )
@@ -98,8 +98,8 @@ def find_local_configuration_files():
     return configuration_files
 
 
-def create_resource(airbyte_resource: BaseAirbyteResource):
-    created_resource, state = airbyte_resource.create()
+def create_resource(resource: BaseResource):
+    created_resource, state = resource.create()
     return [
         click.style(f"🎉 - Successfully created {created_resource.name} on your Airbyte instance!", fg="green", bold=True),
         click.style(f"💾 - New state for {created_resource.name} stored at {state.path}.", fg="yellow"),

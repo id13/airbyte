@@ -6,7 +6,7 @@ import abc
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import airbyte_api_client
 import yaml
@@ -68,7 +68,7 @@ class ResourceState:
         )
 
 
-class BaseAirbyteResource(abc.ABC):
+class BaseResource(abc.ABC):
     @property
     @abc.abstractmethod
     def api(
@@ -132,18 +132,6 @@ class BaseAirbyteResource(abc.ABC):
     ):  # pragma: no cover
         pass
 
-    @property
-    def _create_fn(self) -> Callable:
-        return getattr(self.api, self.create_function_name)
-
-    @property
-    def _update_fn(self) -> Callable:
-        return getattr(self.api, self.update_function_name)
-
-    @property
-    def _search_fn(self) -> Callable:
-        return getattr(self.api, self.search_function_name)
-
     def __init__(self, api_client: airbyte_api_client.ApiClient, workspace_id, local_configuration: dict, configuration_path: str) -> None:
         self.workspace_id = workspace_id
         self.local_configuration = local_configuration
@@ -155,6 +143,9 @@ class BaseAirbyteResource(abc.ABC):
         self.local_file_changed = (
             True if self.state is None else compute_checksum(self.configuration_path) != self.state.configuration_checksum
         )
+        self._create_fn = getattr(self.api, self.create_function_name)
+        self._update_fn = getattr(self.api, self.update_function_name)
+        self._search_fn = getattr(self.api, self.update_function_name)
 
     def get_state(self):
         expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
@@ -169,7 +160,7 @@ class BaseAirbyteResource(abc.ABC):
         return diff.pretty()
 
     def __getattr__(self, name: str) -> Any:
-        """Map attribute of the YAML config to the BaseAirbyteResource object.
+        """Map attribute of the YAML config to the AirbyteResource object.
 
         Args:
             name (str): Attribute name
@@ -190,7 +181,7 @@ class BaseAirbyteResource(abc.ABC):
             return result, ResourceState.create(self.configuration_path, result[self.resource_id_field])
         except airbyte_api_client.ApiException as e:
             if e.status == 422:
-                # This error is really verbose from the API response, but it embodies all the details about why the config is not valid.
+                # This  API response error is really verbose, but it embodies all the details about why the config is not valid.
                 # TODO alafanechere: try to parse it and display it in a more readable way.
                 raise InvalidConfigurationError(e.body)
             else:
@@ -219,7 +210,7 @@ class BaseAirbyteResource(abc.ABC):
         return self.remote_resource.get(self.resource_id_field)
 
 
-class Source(BaseAirbyteResource):
+class Source(BaseResource):
 
     api = source_api.SourceApi
     create_function_name = "create_source"
@@ -248,7 +239,7 @@ class Source(BaseAirbyteResource):
         )
 
 
-class Destination(BaseAirbyteResource):
+class Destination(BaseResource):
     api = destination_api.DestinationApi
     create_function_name = "create_destination"
     resource_id_field = "destination_id"
