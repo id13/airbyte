@@ -140,7 +140,16 @@ class BaseResource(abc.ABC):
         if expected_state_path.is_file():
             return ResourceState.from_file(expected_state_path)
 
-    def _get_diff_with_remote_resource(self):
+    def _get_remote_resource(self):
+        search_results = self._search().get(f"{self.resource_type}s", [])
+        if len(search_results) > 1:
+            raise DuplicateRessourceError("Two or more ressource exist with the same name")
+        if len(search_results) == 1:
+            return search_results[0]
+        else:
+            return None
+
+    def get_diff_with_remote_resource(self):
         current_config = self.configuration
         if self.was_created:
             remote_config = self.remote_resource.connection_configuration
@@ -167,15 +176,6 @@ class BaseResource(abc.ABC):
 
     def update(self):
         return self._create_or_update(self._update_fn, self.update_payload)
-
-    def _get_remote_resource(self):
-        search_results = self._search().get(f"{self.resource_type}s", [])
-        if len(search_results) > 1:
-            raise DuplicateRessourceError("Two or more ressource exist with the same name")
-        if len(search_results) == 1:
-            return search_results[0]
-        else:
-            return None
 
     @property
     def resource_id(self):

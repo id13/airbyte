@@ -77,7 +77,7 @@ def prompt_for_diff_validation(resource_name, diff):
 
 
 def update_resource(resource: BaseResource, force: bool):
-    diff = resource._get_diff_with_remote_resource()
+    diff = resource.get_diff_with_remote_resource()
     should_update, update_reason = should_update_resource(diff, resource.local_file_changed, force)
     output_messages = [update_reason]
     if not force and diff:
