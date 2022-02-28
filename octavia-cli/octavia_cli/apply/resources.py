@@ -112,7 +112,7 @@ class BaseResource(abc.ABC):
         self.local_configuration = local_configuration
         self.configuration_path = configuration_path
         self.api_instance = self.api(api_client)
-        self.state = self.get_state()
+        self.state = self.get_state_from_file()
         self.remote_resource = self.get_remote_resource()
         self.was_created = True if self.remote_resource else False
         self.local_file_changed = (
@@ -135,7 +135,7 @@ class BaseResource(abc.ABC):
             return self.local_configuration.get(name)
         raise AttributeError(f"{self.__class__.__name__}.{name} is invalid.")
 
-    def get_state(self):
+    def get_state_from_file(self):
         expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
         if expected_state_path.is_file():
             return ResourceState.from_file(expected_state_path)
