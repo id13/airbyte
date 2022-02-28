@@ -113,7 +113,7 @@ class BaseResource(abc.ABC):
         self.configuration_path = configuration_path
         self.api_instance = self.api(api_client)
         self.state = self._get_state_from_file()
-        self.remote_resource = self.get_remote_resource()
+        self.remote_resource = self._get_remote_resource()
         self.was_created = True if self.remote_resource else False
         self.local_file_changed = (
             True if self.state is None else compute_checksum(self.configuration_path) != self.state.configuration_checksum
@@ -140,7 +140,7 @@ class BaseResource(abc.ABC):
         if expected_state_path.is_file():
             return ResourceState.from_file(expected_state_path)
 
-    def get_connection_configuration_diff(self):
+    def _get_diff_with_remote_resource(self):
         current_config = self.configuration
         if self.was_created:
             remote_config = self.remote_resource.connection_configuration
@@ -159,16 +159,16 @@ class BaseResource(abc.ABC):
             else:
                 raise e
 
+    def _search(self):
+        return self._search_fn(self.api_instance, self.search_payload)
+
     def create(self):
         return self._create_or_update(self._create_fn, self.create_payload)
 
     def update(self):
         return self._create_or_update(self._update_fn, self.update_payload)
 
-    def _search(self):
-        return self._search_fn(self.api_instance, self.search_payload)
-
-    def get_remote_resource(self):
+    def _get_remote_resource(self):
         search_results = self._search().get(f"{self.resource_type}s", [])
         if len(search_results) > 1:
             raise DuplicateRessourceError("Two or more ressource exist with the same name")
