@@ -94,7 +94,17 @@ class BaseResource(abc.ABC):
     ):  # pragma: no cover
         pass
 
-    def __init__(self, api_client: airbyte_api_client.ApiClient, workspace_id, local_configuration: dict, configuration_path: str) -> None:
+    def __init__(
+        self, api_client: airbyte_api_client.ApiClient, workspace_id: str, local_configuration: dict, configuration_path: str
+    ) -> None:
+        """Create a BaseResource object.
+
+        Args:
+            api_client (airbyte_api_client.ApiClient): the Airbyte API client.
+            workspace_id (str): the workspace id.
+            local_configuration (dict): The local configuration describing the resource.
+            configuration_path (str): The path to the local configuration describing the resource with YAML.
+        """
         self._create_fn = getattr(self.api, self.create_function_name)
         self._update_fn = getattr(self.api, self.update_function_name)
         self._search_fn = getattr(self.api, self.search_function_name)
