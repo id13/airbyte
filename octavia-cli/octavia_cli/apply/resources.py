@@ -30,44 +30,6 @@ class InvalidConfigurationError(ClickException):
     pass
 
 
-class ResourceState:
-    def __init__(self, configuration_path, resource_id, generation_timestamp, configuration_checksum):
-        self.configuration_path = configuration_path
-        self.resource_id = resource_id
-        self.generation_timestamp = generation_timestamp
-        self.configuration_checksum = configuration_checksum
-        self.path = os.path.join(os.path.dirname(self.configuration_path), "state.yaml")
-
-    def _save(self):
-        content = {
-            "configuration_path": self.configuration_path,
-            "resource_id": self.resource_id,
-            "generation_timestamp": self.generation_timestamp,
-            "configuration_checksum": self.configuration_checksum,
-        }
-        with open(self.path, "w") as state_file:
-            yaml.dump(content, state_file)
-
-    @classmethod
-    def create(cls, configuration_path, resource_id):
-        generation_timestamp = int(time.time())
-        configuration_checksum = compute_checksum(configuration_path)
-        state = ResourceState(configuration_path, resource_id, generation_timestamp, configuration_checksum)
-        state._save()
-        return state
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path, "r") as f:
-            raw_state = yaml.load(f, yaml.FullLoader)
-        return ResourceState(
-            raw_state["configuration_path"],
-            raw_state["resource_id"],
-            raw_state["generation_timestamp"],
-            raw_state["configuration_checksum"],
-        )
-
-
 class BaseResource(abc.ABC):
     @property
     @abc.abstractmethod
@@ -133,6 +95,9 @@ class BaseResource(abc.ABC):
         pass
 
     def __init__(self, api_client: airbyte_api_client.ApiClient, workspace_id, local_configuration: dict, configuration_path: str) -> None:
+        self._create_fn = getattr(self.api, self.create_function_name)
+        self._update_fn = getattr(self.api, self.update_function_name)
+        self._search_fn = getattr(self.api, self.search_function_name)
         self.workspace_id = workspace_id
         self.local_configuration = local_configuration
         self.configuration_path = configuration_path
@@ -143,21 +108,6 @@ class BaseResource(abc.ABC):
         self.local_file_changed = (
             True if self.state is None else compute_checksum(self.configuration_path) != self.state.configuration_checksum
         )
-        self._create_fn = getattr(self.api, self.create_function_name)
-        self._update_fn = getattr(self.api, self.update_function_name)
-        self._search_fn = getattr(self.api, self.update_function_name)
-
-    def get_state(self):
-        expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
-        if expected_state_path.is_file():
-            return ResourceState.from_file(expected_state_path)
-
-    def get_connection_configuration_diff(self):
-        current_config = self.configuration
-        if self.was_created:
-            remote_config = self.remote_resource.connection_configuration
-        diff = compute_diff(remote_config, current_config)
-        return diff.pretty()
 
     def __getattr__(self, name: str) -> Any:
         """Map attribute of the YAML config to the AirbyteResource object.
@@ -174,6 +124,18 @@ class BaseResource(abc.ABC):
         if name in self.local_configuration:
             return self.local_configuration.get(name)
         raise AttributeError(f"{self.__class__.__name__}.{name} is invalid.")
+
+    def get_state(self):
+        expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
+        if expected_state_path.is_file():
+            return ResourceState.from_file(expected_state_path)
+
+    def get_connection_configuration_diff(self):
+        current_config = self.configuration
+        if self.was_created:
+            remote_config = self.remote_resource.connection_configuration
+        diff = compute_diff(remote_config, current_config)
+        return diff.pretty()
 
     def _create_or_update(self, operation_fn, payload):
         try:
@@ -277,3 +239,41 @@ def factory(api_client, workspace_id, configuration_path):
     if local_configuration["definition_type"] == "destination":
         AirbyteResource = Destination
     return AirbyteResource(api_client, workspace_id, local_configuration, configuration_path)
+
+
+class ResourceState:
+    def __init__(self, configuration_path, resource_id, generation_timestamp, configuration_checksum):
+        self.configuration_path = configuration_path
+        self.resource_id = resource_id
+        self.generation_timestamp = generation_timestamp
+        self.configuration_checksum = configuration_checksum
+        self.path = os.path.join(os.path.dirname(self.configuration_path), "state.yaml")
+
+    def _save(self):
+        content = {
+            "configuration_path": self.configuration_path,
+            "resource_id": self.resource_id,
+            "generation_timestamp": self.generation_timestamp,
+            "configuration_checksum": self.configuration_checksum,
+        }
+        with open(self.path, "w") as state_file:
+            yaml.dump(content, state_file)
+
+    @classmethod
+    def create(cls, configuration_path, resource_id):
+        generation_timestamp = int(time.time())
+        configuration_checksum = compute_checksum(configuration_path)
+        state = ResourceState(configuration_path, resource_id, generation_timestamp, configuration_checksum)
+        state._save()
+        return state
+
+    @classmethod
+    def from_file(cls, file_path):
+        with open(file_path, "r") as f:
+            raw_state = yaml.load(f, yaml.FullLoader)
+        return ResourceState(
+            raw_state["configuration_path"],
+            raw_state["resource_id"],
+            raw_state["generation_timestamp"],
+            raw_state["configuration_checksum"],
+        )
