@@ -86,7 +86,7 @@ def requires_init(f):
     def wrapper(ctx, **kwargs):
         if not ctx.obj["PROJECT_IS_INITIALIZED"]:
             raise ProjectNotInitializedError(
-                "Your octavia project is not initialized, please run 'octavia init' before running 'octavia apply'."
+                "Your octavia project is not initialized, please run 'octavia init' before running this command."
             )
         f(ctx, **kwargs)
 

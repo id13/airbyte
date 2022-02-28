@@ -53,7 +53,7 @@ class FieldToRender:
     @property
     def is_array_of_objects(self) -> bool:
         if self.type == "array" and self.items:
-            if self.items["type"] == "object":
+            if self.items.get("type") == "object":
                 return True
         return False
 
@@ -149,7 +149,7 @@ class ConnectionSpecificationRenderer:
         directory = os.path.join(project_path, f"{self.definition.type}s", self.resource_name)
         if not os.path.exists(directory):
             os.makedirs(directory)
-        return os.path.join(project_path, f"{self.definition.type}s", self.resource_name, "configuration.yaml")
+        return os.path.join(directory, "configuration.yaml")
 
     def write_yaml(self, project_path: str) -> str:
         output_path = self._get_output_path(project_path)
