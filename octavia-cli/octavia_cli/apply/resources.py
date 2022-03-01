@@ -6,15 +6,19 @@ import abc
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional, Union
 
 import airbyte_api_client
 import yaml
 from airbyte_api_client.api import destination_api, source_api
 from airbyte_api_client.model.destination_create import DestinationCreate
+from airbyte_api_client.model.destination_read import DestinationRead
+from airbyte_api_client.model.destination_read_list import DestinationReadList
 from airbyte_api_client.model.destination_search import DestinationSearch
 from airbyte_api_client.model.destination_update import DestinationUpdate
 from airbyte_api_client.model.source_create import SourceCreate
+from airbyte_api_client.model.source_read import SourceRead
+from airbyte_api_client.model.source_read_list import SourceReadList
 from airbyte_api_client.model.source_search import SourceSearch
 from airbyte_api_client.model.source_update import SourceUpdate
 from click import ClickException
@@ -26,8 +30,50 @@ class DuplicateRessourceError(ClickException):
     pass
 
 
+class NonExistingRessourceError(ClickException):
+    pass
+
+
 class InvalidConfigurationError(ClickException):
     pass
+
+
+class ResourceState:
+    def __init__(self, configuration_path, resource_id, generation_timestamp, configuration_checksum):
+        self.configuration_path = configuration_path
+        self.resource_id = resource_id
+        self.generation_timestamp = generation_timestamp
+        self.configuration_checksum = configuration_checksum
+        self.path = os.path.join(os.path.dirname(self.configuration_path), "state.yaml")
+
+    def _save(self):
+        content = {
+            "configuration_path": self.configuration_path,
+            "resource_id": self.resource_id,
+            "generation_timestamp": self.generation_timestamp,
+            "configuration_checksum": self.configuration_checksum,
+        }
+        with open(self.path, "w") as state_file:
+            yaml.dump(content, state_file)
+
+    @classmethod
+    def create(cls, configuration_path, resource_id):
+        generation_timestamp = int(time.time())
+        configuration_checksum = compute_checksum(configuration_path)
+        state = ResourceState(configuration_path, resource_id, generation_timestamp, configuration_checksum)
+        state._save()
+        return state
+
+    @classmethod
+    def from_file(cls, file_path):
+        with open(file_path, "r") as f:
+            raw_state = yaml.load(f, yaml.FullLoader)
+        return ResourceState(
+            raw_state["configuration_path"],
+            raw_state["resource_id"],
+            raw_state["generation_timestamp"],
+            raw_state["configuration_checksum"],
+        )
 
 
 class BaseResource(abc.ABC):
@@ -120,7 +166,7 @@ class BaseResource(abc.ABC):
         )
 
     def __getattr__(self, name: str) -> Any:
-        """Map attribute of the YAML config to the AirbyteResource object.
+        """Map attribute of the YAML config to the Resource object.
 
         Args:
             name (str): Attribute name
@@ -135,51 +181,108 @@ class BaseResource(abc.ABC):
             return self.local_configuration.get(name)
         raise AttributeError(f"{self.__class__.__name__}.{name} is invalid.")
 
-    def _search(self):
+    def _search(self) -> Union[SourceReadList, DestinationReadList]:
+        """Run search of a resources on the remote Airbyte instance.
+
+        Returns:
+            Union[SourceReadList, DestinationReadList]: Search results
+        """
         return self._search_fn(self.api_instance, self.search_payload)
 
-    def _get_state_from_file(self):
+    def _get_state_from_file(self) -> Optional[ResourceState]:
+        """Retrieve a state object from a local YAML file if it exists.
+
+        Returns:
+            Optional[ResourceState]: the deserialized resource state if YAML file found.
+        """
         expected_state_path = Path(os.path.join(os.path.dirname(self.configuration_path), "state.yaml"))
         if expected_state_path.is_file():
             return ResourceState.from_file(expected_state_path)
 
-    def _get_remote_resource(self):
+    def _get_remote_resource(self) -> Optional[Union[SourceRead, DestinationRead]]:
+        """Find the remote resource on the Airbyte instance associated with the current resource.
+
+        Raises:
+            DuplicateRessourceError: raised if the search results return multiple resources.
+
+        Returns:
+            Optional[Union[SourceRead, DestinationRead]]: The remote resource found.
+        """
         search_results = self._search().get(f"{self.resource_type}s", [])
         if len(search_results) > 1:
-            raise DuplicateRessourceError("Two or more ressource exist with the same name")
+            raise DuplicateRessourceError("Two or more ressource exist with the same name.")
         if len(search_results) == 1:
             return search_results[0]
         else:
             return None
 
-    def get_diff_with_remote_resource(self):
+    def get_diff_with_remote_resource(self) -> str:
+        """Compute the diff between current resource and the remote resource.
+
+        Raises:
+            NonExistingRessourceError: Raised if the remote resource does not exist.
+
+        Returns:
+            str: The prettyfied diff.
+        """
+        if not self.was_created:
+            raise NonExistingRessourceError("Cannot compute diff with a non existing remote resource.")
         current_config = self.configuration
-        if self.was_created:
-            remote_config = self.remote_resource.connection_configuration
+        remote_config = self.remote_resource.connection_configuration
         diff = compute_diff(remote_config, current_config)
         return diff.pretty()
 
-    def _create_or_update(self, operation_fn, payload):
+    def _create_or_update(
+        self, operation_fn: Callable, payload: Union[SourceCreate, SourceUpdate, DestinationCreate, DestinationUpdate]
+    ) -> Union[SourceRead, DestinationRead]:
+        """Wrapper to trigger create or update of remote resource.
+
+        Args:
+            operation_fn (Callable): The API function to run.
+            payload (Union[SourceCreate, SourceUpdate, DestinationCreate, DestinationUpdate]): The payload to send to create or update the resource.
+
+        Raises:
+            InvalidConfigurationError: Raised if the create or update payload is invalid.
+            ApiException: Raised in case of other API errors.
+
+        Returns:
+            Union[SourceRead, DestinationRead]: The created or updated resource.
+        """
         try:
             result = operation_fn(self.api_instance, payload)
             return result, ResourceState.create(self.configuration_path, result[self.resource_id_field])
-        except airbyte_api_client.ApiException as e:
-            if e.status == 422:
+        except airbyte_api_client.ApiException as api_error:
+            if api_error.status == 422:
                 # This  API response error is really verbose, but it embodies all the details about why the config is not valid.
                 # TODO alafanechere: try to parse it and display it in a more readable way.
-                raise InvalidConfigurationError(e.body)
+                raise InvalidConfigurationError(api_error.body)
             else:
-                raise e
+                raise api_error
 
-    def create(self):
+    def create(self) -> Union[SourceRead, DestinationRead]:
+        """Public function to create the resource on the remote Airbyte instance.
+
+        Returns:
+            Union[SourceRead, DestinationRead]: The created resource.
+        """
         return self._create_or_update(self._create_fn, self.create_payload)
 
-    def update(self):
+    def update(self) -> Union[SourceRead, DestinationRead]:
+        """Public function to update the resource on the remote Airbyte instance.
+
+        Returns:
+            Union[SourceRead, DestinationRead]: The updated resource.
+        """
         return self._create_or_update(self._update_fn, self.update_payload)
 
     @property
-    def resource_id(self):
-        return self.remote_resource.get(self.resource_id_field)
+    def resource_id(self) -> Optional[str]:
+        """Exposes the resource UUID of the remote resource
+
+        Returns:
+            str: Remote resource's UUID
+        """
+        return self.remote_resource.get(self.resource_id_field) if self.was_created else None
 
 
 class Source(BaseResource):
@@ -249,41 +352,3 @@ def factory(api_client, workspace_id, configuration_path):
     if local_configuration["definition_type"] == "destination":
         AirbyteResource = Destination
     return AirbyteResource(api_client, workspace_id, local_configuration, configuration_path)
-
-
-class ResourceState:
-    def __init__(self, configuration_path, resource_id, generation_timestamp, configuration_checksum):
-        self.configuration_path = configuration_path
-        self.resource_id = resource_id
-        self.generation_timestamp = generation_timestamp
-        self.configuration_checksum = configuration_checksum
-        self.path = os.path.join(os.path.dirname(self.configuration_path), "state.yaml")
-
-    def _save(self):
-        content = {
-            "configuration_path": self.configuration_path,
-            "resource_id": self.resource_id,
-            "generation_timestamp": self.generation_timestamp,
-            "configuration_checksum": self.configuration_checksum,
-        }
-        with open(self.path, "w") as state_file:
-            yaml.dump(content, state_file)
-
-    @classmethod
-    def create(cls, configuration_path, resource_id):
-        generation_timestamp = int(time.time())
-        configuration_checksum = compute_checksum(configuration_path)
-        state = ResourceState(configuration_path, resource_id, generation_timestamp, configuration_checksum)
-        state._save()
-        return state
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path, "r") as f:
-            raw_state = yaml.load(f, yaml.FullLoader)
-        return ResourceState(
-            raw_state["configuration_path"],
-            raw_state["resource_id"],
-            raw_state["generation_timestamp"],
-            raw_state["configuration_checksum"],
-        )
