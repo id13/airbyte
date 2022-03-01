@@ -39,25 +39,45 @@ class InvalidConfigurationError(ClickException):
 
 
 class ResourceState:
-    def __init__(self, configuration_path, resource_id, generation_timestamp, configuration_checksum):
+    def __init__(self, configuration_path: str, resource_id: str, generation_timestamp: int, configuration_checksum: str):
+        """This constructor is meant to be private. Construction shall be made with create or from_file class methods.
+
+        Args:
+            configuration_path (str): Path to the configuration path the state relates to.
+            resource_id (str): Id of the resource the state relates to.
+            generation_timestamp (int): State generation timestamp.
+            configuration_checksum (str): Checksum of the configuration file.
+        """
         self.configuration_path = configuration_path
         self.resource_id = resource_id
         self.generation_timestamp = generation_timestamp
         self.configuration_checksum = configuration_checksum
         self.path = os.path.join(os.path.dirname(self.configuration_path), "state.yaml")
 
-    def _save(self):
-        content = {
+    def as_dict(self):
+        return {
             "configuration_path": self.configuration_path,
             "resource_id": self.resource_id,
             "generation_timestamp": self.generation_timestamp,
             "configuration_checksum": self.configuration_checksum,
         }
+
+    def _save(self) -> None:
+        """Save the state as a YAML file."""
         with open(self.path, "w") as state_file:
-            yaml.dump(content, state_file)
+            yaml.dump(self.as_dict(), state_file)
 
     @classmethod
-    def create(cls, configuration_path, resource_id):
+    def create(cls, configuration_path: str, resource_id: str) -> "ResourceState":
+        """Create a state for a resource configuration.
+
+        Args:
+            configuration_path (str): Path to the YAML file defining the resource.
+            resource_id (str): UUID of the resource.
+
+        Returns:
+            ResourceState: state representing the resource.
+        """
         generation_timestamp = int(time.time())
         configuration_checksum = compute_checksum(configuration_path)
         state = ResourceState(configuration_path, resource_id, generation_timestamp, configuration_checksum)
@@ -65,7 +85,15 @@ class ResourceState:
         return state
 
     @classmethod
-    def from_file(cls, file_path):
+    def from_file(cls, file_path: str) -> "ResourceState":
+        """Deserialize a state from a YAML path.
+
+        Args:
+            file_path (str): Path to the YAML state.
+
+        Returns:
+            ResourceState: state deserialized from YAML.
+        """
         with open(file_path, "r") as f:
             raw_state = yaml.load(f, yaml.FullLoader)
         return ResourceState(
@@ -93,6 +121,20 @@ class BaseResource(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def create_payload(
+        self,
+    ):  # pragma: no cover
+        pass
+
+    @property
+    @abc.abstractmethod
+    def update_payload(
+        self,
+    ):  # pragma: no cover
+        pass
+
+    @property
+    @abc.abstractmethod
     def update_function_name(
         self,
     ):  # pragma: no cover
@@ -107,21 +149,7 @@ class BaseResource(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def create_payload(
-        self,
-    ):  # pragma: no cover
-        pass
-
-    @property
-    @abc.abstractmethod
     def search_payload(
-        self,
-    ):  # pragma: no cover
-        pass
-
-    @property
-    @abc.abstractmethod
-    def update_payload(
         self,
     ):  # pragma: no cover
         pass
@@ -159,11 +187,17 @@ class BaseResource(abc.ABC):
         self.configuration_path = configuration_path
         self.api_instance = self.api(api_client)
         self.state = self._get_state_from_file()
-        self.remote_resource = self._get_remote_resource()
-        self.was_created = True if self.remote_resource else False
         self.local_file_changed = (
             True if self.state is None else compute_checksum(self.configuration_path) != self.state.configuration_checksum
         )
+
+    @property
+    def remote_resource(self):
+        return self._get_remote_resource()
+
+    @property
+    def was_created(self):
+        return True if self.remote_resource else False
 
     def __getattr__(self, name: str) -> Any:
         """Map attribute of the YAML config to the Resource object.
@@ -172,7 +206,7 @@ class BaseResource(abc.ABC):
             name (str): Attribute name
 
         Raises:
-            AttributeError: Raised if the attributed was not found in the API response payload.
+            AttributeError: Raised if the attributed was not found in the local configuration.
 
         Returns:
             [Any]: Attribute value
@@ -323,11 +357,20 @@ class Destination(BaseResource):
     resource_type = "destination"
 
     @property
-    def create_payload(self):
+    def create_payload(self) -> DestinationCreate:
+        """Defines the payload to create the remote resource.
+
+        Returns:
+            DestinationCreate: The DestinationCreate model instance
+        """
         return DestinationCreate(self.workspace_id, self.resource_name, self.definition_id, self.configuration)
 
     @property
-    def search_payload(self):
+    def search_payload(self) -> DestinationSearch:
+        """Defines the payload to search the remote resource. Search by resource name if no state found, otherwise search by resource id found in the state.
+        Returns:
+            DestinationSearch: The DestinationSearch model instance
+        """
         if self.state is None:
             return DestinationSearch(destination_definition_id=self.definition_id, workspace_id=self.workspace_id, name=self.resource_name)
         else:
@@ -336,7 +379,12 @@ class Destination(BaseResource):
             )
 
     @property
-    def update_payload(self):
+    def update_payload(self) -> DestinationUpdate:
+        """Defines the payload to update a remote resource.
+
+        Returns:
+            DestinationUpdate: The DestinationUpdate model instance.
+        """
         return DestinationUpdate(
             destination_id=self.resource_id,
             connection_configuration=self.configuration,
@@ -348,7 +396,8 @@ def factory(api_client, workspace_id, configuration_path):
     with open(configuration_path, "r") as f:
         local_configuration = yaml.load(f, yaml.FullLoader)
     if local_configuration["definition_type"] == "source":
-        AirbyteResource = Source
+        return Source(api_client, workspace_id, local_configuration, configuration_path)
     if local_configuration["definition_type"] == "destination":
-        AirbyteResource = Destination
-    return AirbyteResource(api_client, workspace_id, local_configuration, configuration_path)
+        return Destination(api_client, workspace_id, local_configuration, configuration_path)
+    else:
+        raise NotImplementedError(f"Resource {local_configuration['definition_type']} was not yet implemented")
