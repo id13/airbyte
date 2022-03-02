@@ -24,6 +24,15 @@ spec:
       labels:
         airbyte: webapp
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - scheduler
       containers:
         - name: airbyte-webapp-container
           image: airbyte/webapp
