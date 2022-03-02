@@ -12,6 +12,15 @@ spec:
       labels:
         airbyte: scheduler
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - scheduler
       containers:
         - name: airbyte-scheduler-container
           image: airbyte/scheduler
@@ -168,10 +177,10 @@ spec:
                   name: airbyte-env
                   key: INTERNAL_API_HOST
           volumeMounts:
-            - name: gcs-log-creds-volume
+            - name: airbyte-secret-gcs-logs
               mountPath: /secrets/gcs-log-creds
               readOnly: true
       volumes:
-        - name: gcs-log-creds-volume
+        - name: airbyte-secret-gcs-logs
           secret:
-            secretName: gcs-log-creds
+            secretName: airbyte-secret-gcs-logs

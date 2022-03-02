@@ -221,10 +221,10 @@ spec:
             - name: SHOULD_RUN_CONNECTION_MANAGER_WORKFLOWS
               value: "false"
           volumeMounts:
-            - name: gcs-log-creds-volume
+            - name: airbyte-secret-gcs-logs
               mountPath: /secrets/gcs-log-creds
               readOnly: true
       volumes:
-        - name: gcs-log-creds-volume
+        - name: airbyte-secret-gcs-logs
           secret:
-            secretName: gcs-log-creds
+            secretName: airbyte-secret-gcs-logs

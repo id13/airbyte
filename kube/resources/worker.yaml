@@ -12,6 +12,15 @@ spec:
       labels:
         airbyte: worker
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - worker
       serviceAccountName: airbyte-admin
       automountServiceAccountToken: true
       containers:
@@ -243,10 +252,10 @@ spec:
             - containerPort: 9029
             - containerPort: 9030 # end temporal worker port pool
           volumeMounts:
-            - name: gcs-log-creds-volume
+            - name: airbyte-secret-gcs-logs
               mountPath: /secrets/gcs-log-creds
               readOnly: true
       volumes:
-        - name: gcs-log-creds-volume
+        - name: airbyte-secret-gcs-logs
           secret:
-            secretName: gcs-log-creds
+            secretName: airbyte-secret-gcs-logs
