@@ -61,6 +61,15 @@ spec:
       labels:
         airbyte: pod-sweeper
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - scheduler
       serviceAccountName: airbyte-admin
       containers:
         - name: airbyte-pod-sweeper

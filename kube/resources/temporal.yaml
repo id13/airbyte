@@ -73,6 +73,15 @@ spec:
       labels:
         airbyte: temporal
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - scheduler
       containers:
         - name: airbyte-temporal
           image: temporalio/auto-setup:1.7.0
