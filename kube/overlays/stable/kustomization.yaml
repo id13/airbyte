@@ -7,8 +7,6 @@ bases:
   - ../../resources
 
 images:
-  - name: airbyte/db
-    newTag: 0.35.42-alpha
   - name: airbyte/bootloader
     newTag: 0.35.42-alpha
   - name: airbyte/scheduler

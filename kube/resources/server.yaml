@@ -24,6 +24,15 @@ spec:
       labels:
         airbyte: server
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - scheduler
       containers:
         - name: airbyte-server-container
           image: airbyte/server
@@ -158,13 +167,13 @@ spec:
           volumeMounts:
             - name: airbyte-volume-configs
               mountPath: /configs
-            - name: gcs-log-creds-volume
+            - name: airbyte-secret-gcs-logs
               mountPath: /secrets/gcs-log-creds
               readOnly: true
       volumes:
         - name: airbyte-volume-configs
           persistentVolumeClaim:
             claimName: airbyte-volume-configs
-        - name: gcs-log-creds-volume
+        - name: airbyte-secret-gcs-logs
           secret:
-            secretName: gcs-log-creds
+            secretName: airbyte-secret-gcs-logs
