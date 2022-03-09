@@ -51,14 +51,14 @@ FB recommends to use Async Requests when common requests begin to timeout.
 Async Request is a 3-step process:
 - create async request
 - check its status (in a loop)
-- fetch response when status is done
+- fetch response when **status** is done
 
 ### Combination with batch
 Unfortunately all attempts to create multiple async requests in a single batch failed - `ObjectParser` from FB lib don’t know how to parse `AdReportRun` response.
 Instead, we use batch to check status of multiple async jobs at once (respecting batch limit of 50)
 
 ### Insights
-We use Async Requests to read Insights, FB API for this called `AdReportRun`.
+We use Async **Requests** to read Insights, FB API for this called `AdReportRun`.
 Insights are reports based on ads performance, you can think about it as an SQL query:
 
 ```sql
