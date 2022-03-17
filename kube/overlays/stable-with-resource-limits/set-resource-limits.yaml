@@ -1,20 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: airbyte-db
-spec:
-  template:
-    spec:
-      containers:
-        - name: airbyte-db-container
-          resources:
-            limits:
-              cpu: 2
-              memory: 2Gi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: airbyte-scheduler
 spec:
   template:
@@ -30,7 +16,7 @@ spec:
           resources:
             limits:
               cpu: 2
-              memory: 512Mi
+              memory: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,7 +36,7 @@ spec:
           resources:
             limits:
               cpu: 2
-              memory: 1Gi
+              memory: 4Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -84,7 +70,7 @@ spec:
           resources:
             limits:
               cpu: 2
-              memory: 512Mi
+              memory: 2048Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -97,22 +83,8 @@ spec:
         - name: airbyte-webapp-container
           resources:
             limits:
-              cpu: 1
-              memory: 512Mi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: airbyte-minio
-spec:
-  template:
-    spec:
-      containers:
-        - name: airbyte-minio
-          resources:
-            limits:
-              cpu: 1
-              memory: 512Mi
+              cpu: 2
+              memory: 2048Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -126,4 +98,4 @@ spec:
           resources:
             limits:
               cpu: 0.5
-              memory: 128Mi
+              memory: 1024Mi
