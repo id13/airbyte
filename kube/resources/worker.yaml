@@ -20,7 +20,7 @@ spec:
                   - key: node-type
                     operator: In
                     values:
-                      - worker
+                      - scheduler
       serviceAccountName: airbyte-admin
       automountServiceAccountToken: true
       containers:
