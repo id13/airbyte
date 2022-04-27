@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: airbyte-scheduler-sweeper
+spec:
+  schedule: "10 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            airbyte: scheduler-sweeper
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: gke-config
+              configMap:
+                name: gke-config
+            - name: gke-sa
+              secret:
+                secretName: gke-sa
+          containers:
+            - name: kube
+              image: bitnami/kubectl:1.22.9
+              command: ["kubectl", "delete", "pod", "-l", "airbyte=scheduler"]
+              env:
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /mnt/gke-sa/service-account.json
+                - name: KUBECONFIG
+                  value: /mnt/gke-config/kubeconfig.yaml
+              volumeMounts:
+                - mountPath: /mnt/gke-config
+                  name: gke-config
+                - mountPath: /mnt/gke-sa
+                  name: gke-sa
+      backoffLimit: 0

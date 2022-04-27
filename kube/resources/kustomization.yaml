@@ -6,6 +6,7 @@ resources:
   - pod-sweeper.yaml
   - scheduler.yaml
   - scheduler-service-account.yaml
+  - scheduler-sweeper.yaml
   - server.yaml
   - temporal.yaml
   - volume-configs.yaml
