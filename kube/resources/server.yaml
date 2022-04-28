@@ -10,6 +10,12 @@ spec:
   selector:
     airbyte: server
 ---
+kind: ServiceExport
+apiVersion: net.gke.io/v1
+metadata:
+  namespace: airbyte
+  name: airbyte-server-svc
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
