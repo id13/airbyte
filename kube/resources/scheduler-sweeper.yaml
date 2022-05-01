@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: airbyte-scheduler-sweeper
 spec:
-  schedule: "10 * * * *"
+  schedule: "10 3 */2 * *"
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
