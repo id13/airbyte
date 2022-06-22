@@ -15,7 +15,7 @@ spec:
                   key: CONNECTOR_SPECIFIC_RESOURCE_DEFAULTS_ENABLED
           resources:
             limits:
-              cpu: 2
+              cpu: 500m
               memory: 2Gi
 ---
 apiVersion: apps/v1
@@ -23,7 +23,7 @@ kind: Deployment
 metadata:
   name: airbyte-worker
 spec:
-  replicas: 4
+  replicas: 1
   template:
     spec:
       containers:
@@ -36,7 +36,7 @@ spec:
                   key: CONNECTOR_SPECIFIC_RESOURCE_DEFAULTS_ENABLED
           resources:
             limits:
-              cpu: 1
+              cpu: 500m
               memory: 2Gi
 ---
 apiVersion: apps/v1
@@ -56,7 +56,7 @@ spec:
                   key: CONNECTOR_SPECIFIC_RESOURCE_DEFAULTS_ENABLED
           resources:
             limits:
-              cpu: 2
+              cpu: 500m
               memory: 2Gi
 ---
 apiVersion: apps/v1
@@ -84,7 +84,7 @@ spec:
         - name: airbyte-webapp-container
           resources:
             limits:
-              cpu: 2
+              cpu: 500m
               memory: 2048Mi
 ---
 apiVersion: apps/v1
@@ -98,5 +98,5 @@ spec:
         - name: airbyte-pod-sweeper
           resources:
             limits:
-              cpu: 0.5
+              cpu: 500m
               memory: 1024Mi
