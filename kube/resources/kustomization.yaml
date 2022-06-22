@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - bootloader.yaml
   - pod-sweeper.yaml
-  - secret-gcs-log-creds.yaml
   - admin-service-account.yaml
   - server.yaml
   - temporal.yaml
