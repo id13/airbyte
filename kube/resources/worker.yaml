@@ -214,6 +214,16 @@ spec:
                 secretKeyRef:
                   name: airbyte-secrets
                   key: STATE_STORAGE_MINIO_SECRET_ACCESS_KEY
+            - name: STATE_STORAGE_GCS_APPLICATION_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: airbyte-secrets
+                  key: STATE_STORAGE_GCS_APPLICATION_CREDENTIALS
+            - name: STATE_STORAGE_GCS_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: airbyte-env
+                  key: STATE_STORAGE_GCS_BUCKET_NAME
             - name: CONTAINER_ORCHESTRATOR_ENABLED
               valueFrom:
                 configMapKeyRef:
