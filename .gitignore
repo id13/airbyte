@@ -65,6 +65,9 @@ resources/examples/airflow/logs/*
 # Cloud Demo
 !airbyte-webapp/src/packages/cloud/data
 
+<<<<<<< HEAD
 .envrc
 .direnv
 *.class
+# Summary.md keeps getting added and we just don't like it
+docs/SUMMARY.md
