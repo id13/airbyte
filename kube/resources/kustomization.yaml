@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
   - bootloader.yaml
+  #- connector-builder-server.yaml #FIXME uncomment this when enabling the connector-builder
+  - cron.yaml
   - pod-sweeper.yaml
   - admin-service-account.yaml
   - server.yaml

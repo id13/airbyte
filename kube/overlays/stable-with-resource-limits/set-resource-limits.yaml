@@ -50,7 +50,7 @@ spec:
         - name: airbyte-temporal
           resources:
             limits:
-              cpu: 2
+              cpu: 2000m
               memory: 2048Mi
 ---
 apiVersion: apps/v1
@@ -79,4 +79,32 @@ spec:
           resources:
             limits:
               cpu: 500m
-              memory: 1024Mi
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airbyte-cron
+spec:
+  template:
+    spec:
+      containers:
+        - name: airbyte-cron-container
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+#--- #FIXME: Uncomment this block when enabling airbyte-connector-builder
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: airbyte-connector-builder-server
+#spec:
+#  template:
+#    spec:
+#      containers:
+#        - name: airbyte-connector-builder-server-container
+#          resources:
+#            limits:
+#              cpu: 0.5
+#              memory: 128Mi
